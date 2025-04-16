@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(threadName)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("threads500k.log"),
+        logging.FileHandler("threads.log"),
         logging.StreamHandler()
     ]
 )
@@ -79,7 +79,7 @@ class BookPage:
         @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=0.5, max=5),
                retry=retry_if_exception_type(httpx.HTTPError), reraise=True)
         async def request():
-                await asyncio.sleep(random.uniform(0.05, 0.2))
+                await asyncio.sleep(random.uniform(0.02, 0.09))
                 html = (await client.get(f'https://www.goodreads.com/book/show/{book_index}', timeout=10)).text
                 return html
 
@@ -99,6 +99,11 @@ class BookPage:
         return book_check
 
     def book_data(self):
+        work_id = json.loads(self.bs.find('script', id='__NEXT_DATA__').get_text())
+        work_id = work_id['props']['pageProps']['apolloState'].keys()
+        for i in work_id:
+            if 'Work:kca:' in i:
+                work_id = i
         book_title = self.bs.find('h1', attrs={'class': 'Text Text__title1'}).get_text()
         author_name = self.bs.find('span', attrs={'class': 'ContributorLink__name'}).get_text()
         rating = float((self.bs.find('div', {'class': 'RatingStatistics__column'})).get_text().replace(',', '.'))
@@ -116,9 +121,6 @@ class BookPage:
                     if 'bookGenres' in genres[j]:
                         for k in genres[j]['bookGenres']:
                             genres_list.append(k['genre']['name'])
-                    # for genre in genres[j].keys():
-                    # if 'bookGenres' in genre:
-                    #     genres_list.append(genre['bookGenres']['genre']['name'])
         five_stars = int(
             (re.match(r'^[\d,]*', self.bs.find('div', {'data-testid': 'labelTotal-5'}).get_text()).group()).replace(',',
                                                                                                                     ''))
@@ -134,7 +136,7 @@ class BookPage:
         one_star = int(
             (re.match(r'^[\d,]*', self.bs.find('div', {'data-testid': 'labelTotal-1'}).get_text()).group()).replace(',',
                                                                                                                     ''))
-        return [book_title, author_name, rating, rating_count, reviews_count, five_stars, four_stars, three_stars,
+        return [work_id, book_title, author_name, rating, rating_count, reviews_count, five_stars, four_stars, three_stars,
                 two_stars, one_star, genres_list]
 
     def series(self):
@@ -250,15 +252,15 @@ async def book_downloader(bookpage: BookPage, conn):
     else:
         try:
             data = bookpage.book_data()
-            await conn.execute('insert into book_data (site_index, book_name, author, rating, nb_ratings, nb_reviews, nb_5_stars, nb_4_stars, nb_3_stars, nb_2_stars, nb_1_stars, genres, series_name, description, nb_pages, publication_date, awards) '
-                               'values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ($12), $13, $14, $15, $16, ($17));',
-                               bookpage.book_index, data[0], data[1],
-                               data[2],
+            await conn.execute('insert into book_data (site_index, work_id, book_name, author, rating, nb_ratings, nb_reviews, nb_5_stars, nb_4_stars, nb_3_stars, nb_2_stars, nb_1_stars, genres, series_name, description, nb_pages, publication_date, awards) '
+                               'values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, ($13), $14, $15, $16, $17, ($18));',
+                               bookpage.book_index, data[0], data[1], data[2],
                                data[3],
-                               data[4], data[5], data[6],
-                               data[7],
+                               data[4],
+                               data[5], data[6], data[7],
                                data[8],
-                               data[9], data[10], bookpage.series(),
+                               data[9],
+                               data[10], data[11], bookpage.series(),
                                bookpage.description_data(),
                                bookpage.pages_date_data()[0], bookpage.pages_date_data()[1], bookpage.awards_data())
             logger.info(msg=f'{bookpage.book_index} was downloaded successfully')
@@ -328,15 +330,5 @@ extract_reviews([69, 29])
 
 
 #%%
-extract_books(tupler(2_800_000, 2_900_000 , 10))
-extract_books(tupler(2_900_000, 3_000_000 , 10))
-extract_books(tupler(3_000_000, 3_100_000 , 10))
-extract_books(tupler(3_100_000, 3_200_000 , 10))
-extract_books(tupler(3_200_000, 3_300_000 , 10))
-
-#%%
-print(tupler(1, 100000 , 10))
-#14000000
-
-
+extract_books(tupler(3_100_000, 3_400_000 , 10))
 

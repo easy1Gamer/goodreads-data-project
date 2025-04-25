@@ -326,9 +326,9 @@ def tupler(x1, x2, n):
     return tuples
 
 #%%
-extract_reviews([69, 29])
+# extract_reviews([69, 29])
 
 
 #%%
-extract_books(tupler(3_100_000, 3_400_000 , 10))
+extract_books(tupler(4_500_000, 4_900_000 , 10))
 

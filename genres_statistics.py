@@ -26,15 +26,7 @@ from genres_data''', con= db).drop_duplicates('work_id').explode('genre')
 
 
 #%%
-genres = df_genres_data.groupby(['genre'])
-
-#%% Median filter function
-from pandas.core.groupby.generic import DataFrameGroupBy
-
-median_count = (genres['site_index'].count()).median()
-
-def filter_median(groups: DataFrameGroupBy):
-    return groups.filter(lambda group: group['site_index'].count() > median_count).groupby(['genre'])
+from utils import genres
 
 #%%Среднее кол-во написанных отзывов на книгу по жанрам, беру только жанры, у которых кол-во книг выше медианного
 
@@ -60,7 +52,7 @@ df_genres_data.groupby(['genre'])['nb_pages'].std()
 
 #%%Cреднее кол-во наград по жанру, беру жанры, в которых кол-во книг больше медианного
 #TODO: Перестало роботать после изменения unnest
-s_count_awards = filter_median(genres)['award'].count()
+s_count_awards = genres(df_genres_data)['award'].count()
 nb_awards = s_count_awards / s_nb_books
 f2, ax2 = plt.subplots(figsize=(16,8))
 ax2.set(title="Mean number of awards by genre", xlabel="Awards")
@@ -72,8 +64,8 @@ plt.show()
 
 #%%Исследование распределения оценок
 # val_index = filter_median(genres)['rating'].mean().index
-df_genre_rating = pd.DataFrame(data=[filter_median(genres)['rating'].mean(), filter_median(genres)['rating'].max(),
-                                    filter_median(genres)['rating'].min()]).transpose()
+df_genre_rating = pd.DataFrame(data=[genres(df_genres_data)['rating'].mean(), genres(df_genres_data)['rating'].max(),
+                                    genres(df_genres_data)['rating'].min()]).transpose()
 df_genre_rating.columns = ['Mean', 'Max', 'Min']
 
 df_genres_plot = df_genres_data[df_genres_data['genre'].isin(df_genre_rating.index)]
@@ -86,7 +78,7 @@ plt.show()
 #%%
 
 #%%
-df_genres_stars = filter_median(genres)
+df_genres_stars = genres(df_genres_data)
 
 
 
@@ -112,6 +104,9 @@ ani = matplotlib.animation.FuncAnimation(fig=f4, func=genre_date_animate, frames
 
 ani.save(filename="plots/animation.gif", writer="Pillow")
 #%%
+
+genres['site_index'].count().sort_values()
+
 
 
 

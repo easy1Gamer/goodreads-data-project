@@ -4,6 +4,9 @@ import re
 import sqlalchemy as sqla
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pyspark
+from pyspark.sql.connect.session import SparkSession
+
 
 #%%
 pd.set_option('display.max_columns', None)
@@ -31,3 +34,15 @@ plt.savefig('plots/my_plot.png')
 plt.show()
 
 #%%
+# ! pip install pyspark[sql]
+# .venv\Scripts\activate
+# Set-ExecutionPolicy Unrestricted -Force
+# from pyspark.sql import SparkSession
+
+
+
+spark = (
+    SparkSession.builder
+        .master("localhost")
+)
+spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")

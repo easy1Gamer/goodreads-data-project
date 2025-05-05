@@ -17,32 +17,103 @@ import seaborn as sns
 
 # Чистка текста
 # nltk + re
-# 1. удалить все не текстовые символы (знаки препинания)
-# 2. Лишние пробелы
-# 3. Удалить stopwords
-# 4. Оставить только описания на английском языке
+# 1. Оставить только описания на английском языке
+# 2. удалить все не текстовые символы (знаки препинания)
+# 3. Лишние пробелы
+# 4. все в один регистр привести
 # 5. токенизация
-# 6. все в один регистр привести
-# 7. Stemming
+# 6. Удалить stopwords
+# 7. Stemming vs Lemmatization
 
 # Преобразование текста в числа
-from utils import genres
 
+
+#%%
+from pyspark.sql.connect.session import SparkSession
+
+
+spark1 = SparkSession.builder.appName("TestApplication").remote("sc://10.0.220.155").getOrCreate() # The SQL config "spark.rpc.message.maxSize" cannot be found.
+spark1.conf.set("spark.sql.session.localRelationCacheThreshold", 512 * 1024 * 1024)
+# spark1.conf.set("spark.rpc.message.maxSize", "1000mb")
+## pyspark --master yarn --conf spark.rpc.message.maxSize=1024
+## spark.conf.set("spark.sql.legacy.setCommandRejectsSparkCoreConfs", False)
+#start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.5 --master spark://Rooky.:7077 --conf spark.rpc.message.maxSize=1024
+# --conf spark.executor.memory=10g --conf spark.executor.cores=6
+#%%
+# spark.sql('''select site_index, work_id, description, genres as genre from book_data where site_index >= 1 and site_index <= 3_000_000''')
+#%%
 db = sqla.create_engine('postgresql+psycopg2://postgres:root@localhost/goodreads_db')
 
 df_desc_genres = pd.read_sql(sql='''select site_index, work_id, description, genres as genre
-from book_data''', con=db)
+from book_data where site_index >= 1 and site_index <= 3_000_000''', con=db)
 #%%
-df_desc_genres = df_desc_genres[df_desc_genres["genre"].apply(lambda x : len(x) > 0)]
+spark_df = spark1.createDataFrame(df_desc_genres.iloc[:100_000])
+spark_df.describe().show()
+#%%
+CHUNK_SIZE = 100_000
+
+final_df = None
+for chunk in range(0, 3_000_000, CHUNK_SIZE):
+    print(f"Обработка куска {chunk}")
+    chunk_df_iloc = df_desc_genres.iloc[chunk:chunk + CHUNK_SIZE]
+    if not chunk_df_iloc.empty:
+        chunk_df = spark1.createDataFrame(chunk_df_iloc)
+        if final_df is None:
+            final_df = chunk_df
+        else:
+            final_df = final_df.union(chunk_df)
+
+#%%
+final_df.describe()
+
+#%%
+final
+
+#%%
+pandas_df = None
+for chunk in range(0, 3_000_000, CHUNK_SIZE):
+    print(f"Обработка куска {chunk}")
+    chunk_df_iloc = spark_df.iloc[chunk:chunk + CHUNK_SIZE]
+    chunk_df =
+    pandas_df = pandas_df.union()
+#%%
+
+from pyspark.sql.functions import length, col
+
+spark_df.filter(length(col("description"))>50).show()
+
+#%%
+# spark_df_desc_genres = spark.createDataFrame(df_desc_genres.iloc[:1000000])
+# spark_df_desc_genres.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%%
 df_desc_genres = df_desc_genres[df_desc_genres["description"].apply(lambda x : len(x) > 50)]
-df_desc_genres_exploded = df_desc_genres.explode("genre")
-# df_desc_genres = df_desc_genres[df_desc_genres_exploded["site_index"].isin(genres(df_desc_genres_exploded)["site_index"])]
+df_desc_genres = df_desc_genres[df_desc_genres["genre"].apply(lambda x : len(x) > 0)]
+
+df_desc_genres_exploded = df_desc_genres.explode('genre')
+
+s_nb_books = df_desc_genres_exploded.groupby(['genre'])['site_index'].count()
+top_100_genres = s_nb_books.sort_values(ascending=False).head(100)
+
 
 #%%
-# df_desc_genres = df_desc_genres_exploded.groupby("genre")
+df_prepared = df_desc_genres[df_desc_genres['genre'].isin(top_100_genres.index)].groupby(['site_index'])
+df_prepared = df_prepared[['description', 'genre']].agg({'description': 'first', 'genre': list})
 
-#%%
-df_desc_genres = df_desc_genres[df_desc_genres["site_index"].isin(df_desc_genres.groupby("work_id")["site_index"].min())]
+
+
 #%%
 
 
@@ -80,7 +151,7 @@ print(description_cleaning(text))
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 
-df_test = df_desc_genres.iloc[:10_000]
+# df_test = df_desc_genres.iloc[:10_000]
 
 def language_detection(text):
     try:
@@ -90,18 +161,19 @@ def language_detection(text):
     return res
 
 
-df_test['language'] = df_test['description'].apply(language_detection)
+# df_test['language'] = df_test['description'].apply(language_detection)
 # df_desc_genres['language'] = df_desc_genres['description'].apply(language_detection)
-#%%
-
-
-
-
-
 
 #%%
 
-df_test
+
+
+
+
+
+#%%
+
+# df_test
 
 
 

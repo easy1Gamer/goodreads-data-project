@@ -19,7 +19,7 @@ df_genres_data = pd.read_sql(sql='''with genres_data as (select site_index, work
  nb_5_stars, nb_4_stars, nb_3_stars, nb_2_stars, nb_1_stars, nb_pages, extract(year from publication_date) as publication_year, genres as Genre,
  awards as award
 from book_data
-where site_index >= 1)
+where site_index >= 1 and site_index <= 3_000_000)
 select *
 from genres_data''', con= db).drop_duplicates('work_id').explode('genre')
 
@@ -30,9 +30,8 @@ from utils import genres
 
 #%%Среднее кол-во написанных отзывов на книгу по жанрам, беру только жанры, у которых кол-во книг выше медианного
 
-#%%
-s_nb_books = filter_median(genres)['site_index'].count()
-s_sum_reviews =  filter_median(genres)['nb_reviews'].sum()
+s_nb_books = genres(df_genres_data)['site_index'].count()
+s_sum_reviews =  genres(df_genres_data)['nb_reviews'].sum()
 nbraitings_by_book = s_sum_reviews / s_nb_books
 f, ax = plt.subplots(figsize=(16,8))
 ax.set(title="Mean number of ratings given by genre")
@@ -113,3 +112,6 @@ genres['site_index'].count().sort_values()
 
 #%% TODO: Соответствие описания реальным жанрам
 df_genres_date.unstack().index[700:710]
+
+#%%
+s_nb_books.sort_values().head(n=10)
